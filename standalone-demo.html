@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Master Mobility | Gestão Cartográfica de Frotas (Standalone)</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet">
+
+  <!-- Leaflet CSS & JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <!-- React 18 & Babel via CDN para execução direta sem compilação local -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    :root {
+      --bg-app: #080c14;
+      --bg-panel: rgba(15, 23, 42, 0.85);
+      --bg-panel-solid: #0f172a;
+      --bg-card: rgba(30, 41, 59, 0.7);
+      --bg-card-hover: rgba(51, 65, 85, 0.8);
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-accent: rgba(56, 189, 248, 0.3);
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --accent-sky: #38bdf8;
+      --accent-emerald: #10b981;
+      --accent-indigo: #6366f1;
+      --accent-amber: #f59e0b;
+      --font-sans: 'Inter', sans-serif;
+      --font-display: 'Outfit', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+      --shadow-lg: 0 10px 30px -5px rgba(0, 0, 0, 0.5);
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-full: 9999px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html,
+    body,
+    #root {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg-app);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+    }
+
+    .app-layout {
+      display: flex;
+      flex-direction: column;
+      width: 100vw;
+      height: 100vh;
+      position: relative;
+    }
+
+    .header-container {
+      height: 64px;
+      background: var(--bg-panel);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      z-index: 500;
+      gap: 16px;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .logo-badge {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-icon-wrap {
+      width: 40px;
+      height: 40px;
+      border-radius: var(--radius-md);
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(99, 102, 241, 0.2));
+      border: 1px solid var(--border-accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .logo-title {
+      font-family: var(--font-display);
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .brand-accent {
+      background: linear-gradient(90deg, #38bdf8, #818cf8);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .badge-tag {
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: var(--radius-sm);
+      background: rgba(56, 189, 248, 0.15);
+      color: #38bdf8;
+      border: 1px solid rgba(56, 189, 248, 0.3);
+    }
+
+    .logo-subtitle {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+    }
+
+    .view-mode-pill {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 14px;
+      border-radius: var(--radius-full);
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .view-mode-pill.mode-micro {
+      border-color: rgba(16, 185, 129, 0.4);
+      background: rgba(16, 185, 129, 0.08);
+    }
+
+    .view-mode-pill.mode-macro {
+      border-color: rgba(56, 189, 248, 0.4);
+      background: rgba(56, 189, 248, 0.08);
+    }
+
+    .status-dot-pulse {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 8px #10b981;
+      animation: pulse 2s infinite;
+    }
+
+    .mode-macro .status-dot-pulse {
+      background: #38bdf8;
+      box-shadow: 0 0 8px #38bdf8;
+    }
+
+    .view-mode-label {
+      display: block;
+      font-family: var(--font-display);
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .view-mode-sub {
+      display: block;
+      font-size: 0.68rem;
+      color: var(--text-muted);
+    }
+
+    .header-kpis {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .kpi-card {
+      background: rgba(30, 41, 59, 0.5);
+      border: 1px solid var(--border-subtle);
+      padding: 6px 14px;
+      border-radius: var(--radius-md);
+      display: flex;
+      flex-direction: column;
+      min-width: 95px;
+    }
+
+    .kpi-label {
+      font-size: 0.62rem;
+      font-weight: 600;
+      color: var(--text-dim);
+    }
+
+    .kpi-value {
+      font-family: var(--font-mono);
+      font-size: 1.05rem;
+      font-weight: 700;
+    }
+
+    .text-sky {
+      color: #38bdf8;
+    }
+
+    .text-emerald {
+      color: #34d399;
+    }
+
+    .text-indigo {
+      color: #818cf8;
+    }
+
+    .text-amber {
+      color: #fbbf24;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .sync-info {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+    }
+
+    .sync-title {
+      font-size: 0.62rem;
+      font-weight: 600;
+      color: var(--text-dim);
+    }
+
+    .sync-timestamp {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: #94a3b8;
+    }
+
+    .btn-sync {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: linear-gradient(135deg, #0284c7, #2563eb);
+      color: #fff;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      padding: 8px 14px;
+      border-radius: var(--radius-md);
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .btn-sync:hover {
+      background: linear-gradient(135deg, #0369a1, #1d4ed8);
+    }
+
+    .filter-bar-container {
+      height: 52px;
+      background: rgba(11, 17, 32, 0.95);
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      gap: 14px;
+      z-index: 450;
+    }
+
+    .search-input-wrap {
+      position: relative;
+      min-width: 290px;
+      flex: 1;
+      max-width: 380px;
+    }
+
+    .search-input {
+      width: 100%;
+      background: rgba(30, 41, 59, 0.6);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-full);
+      padding: 7px 16px;
+      color: var(--text-main);
+      font-size: 0.8rem;
+      outline: none;
+    }
+
+    .state-select {
+      background: rgba(30, 41, 59, 0.6);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-main);
+      font-size: 0.8rem;
+      padding: 6px 12px;
+      border-radius: var(--radius-sm);
+      outline: none;
+      cursor: pointer;
+    }
+
+    .filter-chip {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      font-weight: 500;
+      padding: 5px 12px;
+      border-radius: var(--radius-full);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .filter-chip.active {
+      background: #334155;
+      color: #fff;
+      font-weight: 600;
+    }
+
+    .filter-chip.chip-emerald.active {
+      background: rgba(16, 185, 129, 0.2);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.4);
+    }
+
+    .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+    }
+
+    .dot-emerald {
+      background: #10b981;
+    }
+
+    .dot-indigo {
+      background: #6366f1;
+    }
+
+    .dot-amber {
+      background: #f59e0b;
+    }
+
+    .main-content-area {
+      flex: 1;
+      position: relative;
+      display: flex;
+      overflow: hidden;
+    }
+
+    .fleet-map-wrapper {
+      flex: 1;
+      position: relative;
+      height: 100%;
+      width: 100%;
+    }
+
+    .leaflet-map-canvas {
+      width: 100%;
+      height: 100%;
+      background: #080c14;
+    }
+
+    /* Marcadores Leaflet */
+    .macro-state-bubble {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #0284c7, #0f172a);
+      border: 2px solid #38bdf8;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6), 0 0 15px rgba(56, 189, 248, 0.4);
+      cursor: pointer;
+      transition: transform 0.2s ease;
+    }
+
+    .macro-state-bubble:hover {
+      transform: scale(1.18);
+      border-color: #7dd3fc;
+    }
+
+    .bubble-uf {
+      font-family: var(--font-display);
+      font-size: 0.75rem;
+      font-weight: 800;
+      color: #fff;
+    }
+
+    .bubble-count {
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      font-weight: 700;
+      color: #7dd3fc;
+    }
+
+    .cluster-bubble {
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #1e293b, #090d16);
+      border: 2px solid #38bdf8;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+      cursor: pointer;
+    }
+
+    .cluster-count {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 0.8rem;
+      color: #fff;
+    }
+
+    .vehicle-pin {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #0f172a;
+      border: 2px solid #10b981;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 10px rgba(16, 185, 129, 0.6);
+      cursor: pointer;
+    }
+
+    .vehicle-pin.status-parked {
+      border-color: #3b82f6;
+      box-shadow: 0 0 10px rgba(59, 130, 246, 0.6);
+    }
+
+    .vehicle-pin.status-maintenance {
+      border-color: #f59e0b;
+      box-shadow: 0 0 10px rgba(245, 158, 11, 0.6);
+    }
+
+    .vehicle-center-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #fff;
+    }
+
+    /* Map Controls Overlay */
+    .map-controls-overlay {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      z-index: 400;
+    }
+
+    .control-fab-btn {
+      width: 42px;
+      height: 42px;
+      border-radius: var(--radius-md);
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid var(--border-subtle);
+      color: var(--accent-sky);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    .tile-selector-card {
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      width: 130px;
+    }
+
+    .tile-chip {
+      background: rgba(30, 41, 59, 0.5);
+      border: 1px solid transparent;
+      color: var(--text-muted);
+      font-size: 0.72rem;
+      padding: 4px 8px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      text-align: left;
+    }
+
+    .tile-chip.active {
+      background: rgba(56, 189, 248, 0.15);
+      border-color: rgba(56, 189, 248, 0.4);
+      color: #38bdf8;
+      font-weight: 600;
+    }
+
+    /* Sidebar */
+    .fleet-sidebar {
+      width: 320px;
+      height: 100%;
+      background: rgba(11, 17, 32, 0.96);
+      border-left: 1px solid var(--border-subtle);
+      display: flex;
+      flex-direction: column;
+      z-index: 450;
+    }
+
+    .sidebar-header {
+      height: 48px;
+      padding: 0 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .sidebar-title {
+      font-family: var(--font-display);
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .sidebar-list-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .fleet-item-card {
+      background: rgba(30, 41, 59, 0.4);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 10px 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .fleet-item-card:hover {
+      background: rgba(51, 65, 85, 0.5);
+      border-color: var(--border-accent);
+    }
+
+    .item-plate {
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .item-speed {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: #34d399;
+      font-weight: 600;
+      float: right;
+    }
+
+    .item-model {
+      font-size: 0.75rem;
+      color: var(--text-main);
+      margin-top: 3px;
+    }
+
+    .item-address {
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+      line-height: 1.2;
+    }
+
+    /* Drawer */
+    .vehicle-drawer-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .vehicle-drawer {
+      width: 440px;
+      max-width: 90vw;
+      height: 100%;
+      background: var(--bg-panel-solid);
+      border-left: 1px solid var(--border-accent);
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      overflow-y: auto;
+    }
+
+    .plate-mercosul {
+      width: 125px;
+      background: #fff;
+      border-radius: 4px;
+      border: 2px solid #000;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+
+    .plate-header {
+      height: 14px;
+      background: #003399;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 5px;
+      color: #fff;
+      font-size: 0.55rem;
+      font-weight: 800;
+    }
+
+    .plate-number {
+      font-family: var(--font-mono);
+      font-size: 1.15rem;
+      font-weight: 800;
+      letter-spacing: 2px;
+      color: #111;
+      text-align: center;
+      padding: 2px 0;
+    }
+
+    .street-highlight-card {
+      background: rgba(30, 41, 59, 0.8);
+      border: 1px solid var(--accent-sky);
+      border-radius: var(--radius-md);
+      padding: 14px;
+    }
+
+    .telemetry-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+
+    .telemetry-card {
+      background: rgba(30, 41, 59, 0.5);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 12px;
+    }
+
+    @keyframes pulse {
+      0% {
+        transform: scale(0.95);
+        opacity: 0.8;
+      }
+
+      50% {
+        transform: scale(1.15);
+        opacity: 0.3;
+      }
+
+      100% {
+        transform: scale(0.95);
+        opacity: 0.8;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useMemo, useCallback } = React;
+
+    const BRAZIL_STATES = [
+      { uf: 'SP', name: 'São Paulo', lat: -22.19, lng: -48.79, bounds: [[-25.3, -53.1], [-19.7, -44.1]], count: 1480 },
+      { uf: 'RJ', name: 'Rio de Janeiro', lat: -22.25, lng: -42.66, bounds: [[-23.4, -44.9], [-20.7, -40.9]], count: 620 },
+      { uf: 'MG', name: 'Minas Gerais', lat: -18.1, lng: -44.38, bounds: [[-22.9, -51.1], [-14.2, -39.8]], count: 940 },
+      { uf: 'PR', name: 'Paraná', lat: -24.89, lng: -51.55, bounds: [[-26.7, -54.6], [-22.5, -48.0]], count: 540 },
+      { uf: 'RS', name: 'Rio Grande do Sul', lat: -30.17, lng: -53.5, bounds: [[-33.8, -57.6], [-27.1, -49.7]], count: 460 },
+      { uf: 'BA', name: 'Bahia', lat: -12.96, lng: -41.68, bounds: [[-18.3, -46.6], [-8.5, -37.3]], count: 410 },
+      { uf: 'GO', name: 'Goiás', lat: -15.98, lng: -49.86, bounds: [[-19.5, -53.2], [-12.4, -45.9]], count: 390 },
+      { uf: 'DF', name: 'Distrito Federal', lat: -15.78, lng: -47.93, bounds: [[-16.05, -48.29], [-15.5, -47.3]], count: 310 }
+    ];
+
+    const STREET_CORRIDORS = [
+      { street: 'Av. Paulista, nº 1578', lat: -23.5614, lng: -46.6560, neighborhood: 'Bela Vista' },
+      { street: 'Av. Brigadeiro Faria Lima, nº 3477', lat: -23.5874, lng: -46.6821, neighborhood: 'Itaim Bibi' },
+      { street: 'Marginal Pinheiros (Av. Nações Unidas), nº 12551', lat: -23.6020, lng: -46.6980, neighborhood: 'Brooklin' },
+      { street: 'Marginal Tietê, Trecho Barra Funda', lat: -23.5130, lng: -46.6430, neighborhood: 'Barra Funda' },
+      { street: 'Av. 23 de Maio, nº 800', lat: -23.5750, lng: -46.6420, neighborhood: 'Paraíso' },
+      { street: 'Rodovia dos Bandeirantes, km 18', lat: -23.4680, lng: -46.7550, neighborhood: 'Pirituba' },
+      { street: 'Av. Eng. Luís Carlos Berrini, nº 105', lat: -23.6080, lng: -46.6960, neighborhood: 'Itaim' }
+    ];
+
+    function generateAllMockVehicles() {
+      const allVehicles = [];
+      const models = ['Volvo FH 540', 'Scania R450', 'Mercedes-Benz Sprinter', 'Toyota Hilux 4x4', 'Fiat Strada 1.3'];
+      const drivers = ['Carlos Eduardo Silva', 'Rodrigo Mendes', 'Juliana Ramos', 'Marcos Ferreira', 'Paulo Farias'];
+
+      BRAZIL_STATES.forEach(st => {
+        const count = Math.min(st.count, 70);
+        for (let i = 0; i < count; i++) {
+          const corridor = STREET_CORRIDORS[i % STREET_CORRIDORS.length];
+          const offsetLat = (((i * 17) % 100) / 100 - 0.5) * 0.06;
+          const offsetLng = (((i * 23) % 100) / 100 - 0.5) * 0.06;
+          const status = i % 4 === 0 ? 'parked' : i % 7 === 0 ? 'maintenance' : 'in_transit';
+          const lat = st.uf === 'SP' ? Number((corridor.lat + offsetLat * 0.25).toFixed(6)) : Number((st.lat + offsetLat).toFixed(6));
+          const lng = st.uf === 'SP' ? Number((corridor.lng + offsetLng * 0.25).toFixed(6)) : Number((st.lng + offsetLng).toFixed(6));
+
+          allVehicles.push({
+            id: `VEH-${st.uf}-${(i + 1).toString().padStart(4, '0')}`,
+            plate: `BRA${(i + st.uf.charCodeAt(0)) % 9}E${(i * 3) % 9}${i % 10}`,
+            model: models[i % models.length],
+            driver: drivers[(i + st.uf.charCodeAt(0)) % drivers.length],
+            status,
+            speed: status === 'in_transit' ? 45 + (i * 7 % 40) : 0,
+            lat,
+            lng,
+            state: st.uf,
+            address: st.uf === 'SP' ? `${corridor.street} - ${corridor.neighborhood}, São Paulo - SP` : `Av. Principal, nº ${100 + i * 20} - Centro, ${st.name} - ${st.uf}`,
+            odometer: 45000 + i * 125,
+            fuelLevel: 85 - (i % 60),
+            lastTransmission: 'Hoje, 06:45 (GET diário de telemetria)'
+          });
+        }
+      });
+      return allVehicles;
+    }
+
+    function StandaloneApp() {
+      const [zoomLevel, setZoomLevel] = useState(4);
+      const [tileStyle, setTileStyle] = useState('osm');
+      const [selectedVehicle, setSelectedVehicle] = useState(null);
+      const [searchQuery, setSearchQuery] = useState('');
+      const [statusFilter, setStatusFilter] = useState('all');
+      const [vehicles, setVehicles] = useState([]);
+      const [isLoading, setIsLoading] = useState(false);
+
+      const mapContainerRef = useRef(null);
+      const mapRef = useRef(null);
+      const macroLayerRef = useRef(null);
+      const microLayerRef = useRef(null);
+
+      // Carrega veículos mock
+      useEffect(() => {
+        setVehicles(generateAllMockVehicles());
+      }, []);
+
+      // Inicializa Leaflet
+      useEffect(() => {
+        if (!mapContainerRef.current || mapRef.current) return;
+
+        const map = L.map(mapContainerRef.current, {
+          center: [-14.235, -51.925],
+          zoom: 4,
+          minZoom: 3,
+          maxZoom: 19,
+          zoomControl: false
+        });
+
+        // OpenStreetMap 100% Gratuito e Livre (Sem Chaves de API nem Cobranças)
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+          maxZoom: 19
+        }).addTo(map);
+
+        macroLayerRef.current = L.layerGroup().addTo(map);
+        microLayerRef.current = L.layerGroup().addTo(map);
+        mapRef.current = map;
+
+        const handleMapMove = () => {
+          setZoomLevel(map.getZoom());
+        };
+        map.on('zoomend', handleMapMove);
+        map.on('moveend', handleMapMove);
+      }, []);
+
+      // Atualiza Camadas no Mapa conforme Zoom
+      useEffect(() => {
+        const map = mapRef.current;
+        if (!map) return;
+
+        const isMicro = zoomLevel >= 6;
+
+        if (!isMicro) {
+          // MODO MACRO (Zoom Out: Estados)
+          microLayerRef.current.clearLayers();
+          macroLayerRef.current.clearLayers();
+
+          BRAZIL_STATES.forEach(st => {
+            const icon = L.divIcon({
+              className: 'custom-macro-div',
+              html: `<div class="macro-state-bubble">
+                <div class="bubble-uf">${st.uf}</div>
+                <div class="bubble-count">${st.count}</div>
+              </div>`,
+              iconSize: [52, 52],
+              iconAnchor: [26, 26]
+            });
+
+            const marker = L.marker([st.lat, st.lng], { icon });
+            marker.bindTooltip(`<strong>${st.name}</strong><br/>${st.count} veículos na frota<br/><small style="color:#38bdf8">Clique para dar zoom-in</small>`);
+            marker.on('click', () => {
+              map.flyToBounds(st.bounds, { duration: 1.2 });
+            });
+            macroLayerRef.current.addLayer(marker);
+          });
+        } else {
+          // MODO MICRO (Zoom In: Veículos na Rua)
+          macroLayerRef.current.clearLayers();
+          microLayerRef.current.clearLayers();
+
+          const filtered = vehicles.filter(v => {
+            if (searchQuery && !v.plate.toLowerCase().includes(searchQuery.toLowerCase()) && !v.driver.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+            if (statusFilter !== 'all' && v.status !== statusFilter) return false;
+            return true;
+          });
+
+          // Clustering se zoom for intermediário
+          if (zoomLevel < 14) {
+            // Agrupamento visual simples
+            const clusterMap = {};
+            filtered.forEach(v => {
+              const key = `${v.lat.toFixed(2)}_${v.lng.toFixed(2)}`;
+              if (!clusterMap[key]) clusterMap[key] = [];
+              clusterMap[key].push(v);
+            });
+
+            Object.values(clusterMap).forEach(group => {
+              if (group.length > 1) {
+                const icon = L.divIcon({
+                  className: 'custom-cluster-div',
+                  html: `<div class="cluster-bubble" style="width:44px; height:44px;"><span class="cluster-count">${group.length}</span></div>`,
+                  iconSize: [44, 44],
+                  iconAnchor: [22, 22]
+                });
+                const marker = L.marker([group[0].lat, group[0].lng], { icon });
+                marker.bindTooltip(`${group.length} veículos próximos. Clique para aproximar.`);
+                marker.on('click', () => {
+                  map.setView([group[0].lat, group[0].lng], 15);
+                });
+                microLayerRef.current.addLayer(marker);
+              } else {
+                renderSingleVehicle(group[0]);
+              }
+            });
+          } else {
+            // Nível de Rua direto
+            filtered.forEach(v => renderSingleVehicle(v));
+          }
+
+          function renderSingleVehicle(v) {
+            const icon = L.divIcon({
+              className: 'custom-vehicle-div',
+              html: `<div class="vehicle-pin status-${v.status}"><div class="vehicle-center-dot"></div></div>`,
+              iconSize: [28, 28],
+              iconAnchor: [14, 14]
+            });
+            const marker = L.marker([v.lat, v.lng], { icon });
+            marker.bindTooltip(`<strong>${v.plate}</strong> • ${v.speed} km/h<br/>${v.address}`);
+            marker.on('click', () => setSelectedVehicle(v));
+            microLayerRef.current.addLayer(marker);
+          }
+        }
+      }, [zoomLevel, vehicles, searchQuery, statusFilter]);
+
+      return (
+        <div className="app-layout">
+          <header className="header-container">
+            <div className="header-left">
+              <div className="logo-badge">
+                <div className="logo-icon-wrap">🚚</div>
+                <div>
+                  <div className="logo-title"><span className="brand-accent">MASTER</span> MOBILITY <span className="badge-tag">MOCKUP</span></div>
+                  <div className="logo-subtitle">Telemetria Diária Integrada (Sem Google Maps)</div>
+                </div>
+              </div>
+
+              <div className={`view-mode-pill ${zoomLevel >= 6 ? 'mode-micro' : 'mode-macro'}`}>
+                <div className="status-dot-pulse"></div>
+                <div>
+                  <span className="view-mode-label">{zoomLevel >= 6 ? 'VISÃO MICRO: NÍVEL DE RUA' : 'VISÃO MACRO: ESTADOS (BRASIL)'}</span>
+                  <span className="view-mode-sub">{zoomLevel >= 6 ? 'Mostrando veículos georreferenciados' : 'Dê zoom ou clique no estado'}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="header-kpis">
+              <div className="kpi-card"><span className="kpi-label">TOTAL FROTA</span><span className="kpi-value text-sky">4.850</span></div>
+              <div className="kpi-card"><span className="kpi-label">EM ROTA</span><span className="kpi-value text-emerald">2.340</span></div>
+              <div className="kpi-card"><span className="kpi-label">PARADOS</span><span className="kpi-value text-indigo">2.120</span></div>
+            </div>
+
+            <div className="header-right">
+              <div className="sync-info">
+                <span className="sync-title">ÚLTIMO GET DIÁRIO</span>
+                <span className="sync-timestamp">07/10/2026 às 06:45</span>
+              </div>
+              <button className="btn-sync" onClick={() => {
+                setIsLoading(true);
+                setTimeout(() => {
+                  setVehicles(generateMockVehicles('SP', 150));
+                  setIsLoading(false);
+                }, 800);
+              }}>
+                {isLoading ? 'Atualizando...' : 'Simular Novo GET'}
+              </button>
+            </div>
+          </header>
+
+          <div className="filter-bar-container">
+            <div className="search-input-wrap">
+              <input
+                type="text"
+                className="search-input"
+                placeholder="Buscar por Placa ou Motorista..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+
+            <select className="state-select" onChange={(e) => {
+              const uf = e.target.value;
+              const found = BRAZIL_STATES.find(s => s.uf === uf);
+              if (found && mapRef.current) {
+                mapRef.current.flyToBounds(found.bounds, { duration: 1.2 });
+              } else if (mapRef.current) {
+                mapRef.current.setView([-14.235, -51.925], 4);
+              }
+            }}>
+              <option value="">Brasil Completo (Macro)</option>
+              {BRAZIL_STATES.map(s => <option key={s.uf} value={s.uf}>{s.uf} - {s.name} ({s.count} veículos)</option>)}
+            </select>
+
+            <button className={`filter-chip ${statusFilter === 'all' ? 'active' : ''}`} onClick={() => setStatusFilter('all')}>Todos</button>
+            <button className={`filter-chip chip-emerald ${statusFilter === 'in_transit' ? 'active' : ''}`} onClick={() => setStatusFilter('in_transit')}>
+              <span className="dot dot-emerald"></span> Em Rota
+            </button>
+            <button className={`filter-chip ${statusFilter === 'parked' ? 'active' : ''}`} onClick={() => setStatusFilter('parked')}>
+              <span className="dot dot-indigo"></span> Parado
+            </button>
+          </div>
+
+          <main className="main-content-area">
+            <div className="fleet-map-wrapper">
+              <div ref={mapContainerRef} className="leaflet-map-canvas"></div>
+
+              <div className="map-controls-overlay">
+                <button className="control-fab-btn" title="Voltar ao Brasil" onClick={() => {
+                  if (mapRef.current) mapRef.current.setView([-14.235, -51.925], 4);
+                }}>🇧🇷</button>
+              </div>
+            </div>
+
+            <aside className="fleet-sidebar">
+              <div className="sidebar-header">
+                <span className="sidebar-title">Lista de Veículos</span>
+                <span style={{ fontSize: '0.75rem', color: '#38bdf8' }}>{vehicles.length} un</span>
+              </div>
+              <div className="sidebar-list-content">
+                {vehicles.slice(0, 35).map(v => (
+                  <div key={v.id} className="fleet-item-card" onClick={() => {
+                    setSelectedVehicle(v);
+                    if (mapRef.current) mapRef.current.setView([v.lat, v.lng], 17);
+                  }}>
+                    <div>
+                      <span className="item-plate">{v.plate}</span>
+                      <span className="item-speed">{v.speed} km/h</span>
+                    </div>
+                    <div className="item-model">{v.model} • {v.driver}</div>
+                    <div className="item-address">{v.address}</div>
+                  </div>
+                ))}
+              </div>
+            </aside>
+          </main>
+
+          {selectedVehicle && (
+            <div className="vehicle-drawer-overlay" onClick={() => setSelectedVehicle(null)}>
+              <div className="vehicle-drawer" onClick={e => e.stopPropagation()}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div className="plate-mercosul">
+                    <div className="plate-header"><span>BRASIL</span><span>🇧🇷</span></div>
+                    <div className="plate-number">{selectedVehicle.plate}</div>
+                  </div>
+                  <button onClick={() => setSelectedVehicle(null)} style={{ background: 'none', border: 'none', color: '#fff', fontSize: '1.2rem', cursor: 'pointer' }}>✕</button>
+                </div>
+
+                <div style={{ fontSize: '1.1rem', fontWeight: 'bold' }}>{selectedVehicle.model}</div>
+                <div style={{ color: '#94a3b8', fontSize: '0.8rem' }}>Condutor: {selectedVehicle.driver}</div>
+
+                <div className="street-highlight-card">
+                  <div style={{ color: '#38bdf8', fontSize: '0.7rem', fontWeight: 'bold' }}>ENDEREÇO NA ÚLTIMA TRANSMISSÃO (GET)</div>
+                  <div style={{ fontSize: '0.95rem', fontWeight: 600, marginTop: '4px' }}>{selectedVehicle.address}</div>
+                  <div style={{ fontFamily: 'monospace', fontSize: '0.75rem', color: '#94a3b8', marginTop: '8px' }}>
+                    LAT: {selectedVehicle.lat} | LNG: {selectedVehicle.lng}
+                  </div>
+                </div>
+
+                <div className="telemetry-grid">
+                  <div className="telemetry-card">
+                    <div style={{ fontSize: '0.65rem', color: '#94a3b8' }}>VELOCIDADE NO GET</div>
+                    <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#fff' }}>{selectedVehicle.speed} km/h</div>
+                  </div>
+                  <div className="telemetry-card">
+                    <div style={{ fontSize: '0.65rem', color: '#94a3b8' }}>ODÔMETRO ACUMULADO</div>
+                    <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#fff' }}>{selectedVehicle.odometer} km</div>
+                  </div>
+                </div>
+
+                <button
+                  style={{ background: '#0284c7', color: '#fff', border: 'none', padding: '10px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
+                  onClick={() => {
+                    if (mapRef.current) mapRef.current.setView([selectedVehicle.lat, selectedVehicle.lng], 18);
+                    setSelectedVehicle(null);
+                  }}
+                >
+                  Centralizar neste Veículo no Mapa
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<StandaloneApp />);
+  </script>
+</body>
+
+</html>
